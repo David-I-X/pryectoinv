@@ -33,8 +33,8 @@ async def PlayTimeGenre(request: Request, genero: str):
 
     # Carga de datos
     try:
-        df_juegos = pd.read_parquet("games.parquet")
-        df_items = pd.read_parquet("items.parquet")
+        df_juegos = pd.read_parquet("MLOps/games.parquet")
+        df_items = pd.read_parquet("MLOps/items.parquet")
     except FileNotFoundError:
         raise Exception("Error al cargar los datos")
 
@@ -79,8 +79,8 @@ async def user_for_genre(request: Request, genero: str):
     """
 
     # Carga de datos
-    df_reviews = pd.read_parquet("reviews.parquet", columns=['user_id', 'item_id'])
-    df_juegos = pd.read_parquet("games.parquet", columns=['item_id', 'tags'])
+    df_reviews = pd.read_parquet("MLOps/reviews.parquet", columns=['user_id', 'item_id'])
+    df_juegos = pd.read_parquet("MLOps/games.parquet", columns=['item_id', 'tags'])
 
     # Filtrado por género (buscar en la columna 'tags' del DataFrame juegos)
     try:
