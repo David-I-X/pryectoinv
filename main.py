@@ -33,8 +33,8 @@ async def PlayTimeGenre(request: Request, genero: str):
 
     # Carga de datos
     try:
-        df_juegos = pd.read_parquet("MLOps/games.parquet")
-        df_items = pd.read_parquet("MLOps/items.parquet")
+        df_juegos = pd.read_parquet("ETL/games.parquet")
+        df_items = pd.read_parquet("ETL/items.parquet")
     except FileNotFoundError:
         raise Exception("Error al cargar los datos")
 
@@ -79,8 +79,8 @@ async def user_for_genre(request: Request, genero: str):
     """
 
     # Carga de datos
-    df_reviews = pd.read_parquet("MLOps/reviews.parquet", columns=['user_id', 'item_id'])
-    df_juegos = pd.read_parquet("MLOps/games.parquet", columns=['item_id', 'tags'])
+    df_reviews = pd.read_parquet("ETL/reviews.parquet", columns=['user_id', 'item_id'])
+    df_juegos = pd.read_parquet("ETL/games.parquet", columns=['item_id', 'tags'])
 
     # Filtrado por género (buscar en la columna 'tags' del DataFrame juegos)
     try:
@@ -90,7 +90,7 @@ async def user_for_genre(request: Request, genero: str):
         raise HTTPException(status_code=404, detail="Género no encontrado")
 
     # Agrupación por usuario y cálculo de horas jugadas (asumiendo playtime_forever en df_items)
-    df_items = pd.read_parquet("items.parquet", columns=['user_id', 'item_id', 'playtime_forever'])
+    df_items = pd.read_parquet("ETL/items.parquet", columns=['user_id', 'item_id', 'playtime_forever'])
     df_items['playtime_forever'] = df_items['playtime_forever'].astype('float32')
     df_horas = df_genero.merge(df_items, on='item_id', how='left').groupby('user_id')['playtime_forever'].sum()
 
