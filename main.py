@@ -31,38 +31,26 @@ async def PlayTimeGenre(request: Request, genero: str):
         Un diccionario con el año de lanzamiento con más horas jugadas para el género especificado.
     """
 
-    # Carga de datos
+   # Carga de datos
     try:
-        df_juegos = pd.read_parquet("ETL/games.parquet")
-        df_items = pd.read_parquet("ETL/items.parquet")
+     df_juegos = pd.read_parquet("ETL/games.parquet", columns=["item_id", "tags", "release_date"])
+     df_items = pd.read_parquet("ETL/items.parquet", columns=["item_id", "playtime_forever"])
     except FileNotFoundError:
-        raise Exception("Error al cargar los datos")
+     raise Exception("Error al cargar los datos")
 
-    # Fusión de DataFrames para obtener 'release_date' (año de lanzamiento)
-    df_juegos_merge = df_juegos.merge(df_items[['item_id', 'playtime_forever']], on='item_id', how='left')
+  # Filtrado por género
+    df_genero = df_juegos.loc[df_juegos["tags"].str.contains(genero, case=False)]
+    df_genero = df_genero.merge(df_items[['item_id', 'playtime_forever']], on='item_id', how='left')
 
-    # Verifica si la columna `release_date` existe
-    if "release_date" not in df_juegos_merge.columns:
-        return {"Mensaje": "La columna `release_date` no está disponible"}
-
-    # Verifica el tipo de dato de 'release_date'
-    if not pd.api.types.is_datetime64_dtype(df_juegos_merge['release_date']):
-        try:
-            df_juegos_merge['release_date'] = pd.to_datetime(df_juegos_merge['release_date'])
-        except:
-            return {"Mensaje": "Error al convertir `release_date` a formato fecha y hora"}
-
-    # Filtrado por género (usa el DataFrame fusionado)
-    df_genero = df_juegos_merge[df_juegos_merge["tags"].str.contains(genero, case=False)]
-
-    # Año con más horas jugadas
-    if "release_date" in df_juegos_merge.columns and pd.api.types.is_datetime64_dtype(df_juegos_merge['release_date']):
-        anio_lanzamiento = df_genero['release_date'].dt.year
-        df_horas = df_genero.groupby(anio_lanzamiento)["playtime_forever"].agg("sum")
-        año_max = df_horas.idxmax()
-        return {"Año de lanzamiento con más horas jugadas para Género " + genero: año_max}
+  # Año con más horas jugadas
+    if "release_date" in df_genero.columns:
+       anio_lanzamiento = pd.to_datetime(df_genero['release_date']).dt.year
+       df_horas = df_genero.groupby(anio_lanzamiento)["playtime_forever"].agg("sum")
+       año_max = df_horas.idxmax()
+       return {"Año de lanzamiento con más horas jugadas para Género " + genero: año_max}
     else:
-        return {"Mensaje": "No se pudo obtener el año de lanzamiento debido a problemas con la columna `release_date`"}
+      return {"Mensaje": "No se pudo obtener el año de lanzamiento debido a problemas con la columna `release_date`"}
+
 
 
 #2. UserForGenre:
