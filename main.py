@@ -47,7 +47,7 @@ async def PlayTimeGenre(request: Request, genero: str):
        anio_lanzamiento = pd.to_datetime(df_genero['release_date']).dt.year
        df_horas = df_genero.groupby(anio_lanzamiento)["playtime_forever"].agg("sum")
        año_max = df_horas.idxmax()
-       return {"Año de lanzamiento con más horas jugadas para Género " + genero: año_max}
+       return {"Año de lanzamiento con más horas jugadas para Género " + genero: int(año_max)}
     else:
       return {"Mensaje": "No se pudo obtener el año de lanzamiento debido a problemas con la columna `release_date`"}
 
