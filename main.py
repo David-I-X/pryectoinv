@@ -7,82 +7,95 @@ from collections import Counter
 
 #Modelo de datos:
 
-#Creamos un modelo de datos para las peticiones a la API:
-class Peticion(BaseModel):
-    genero: str
-    año: int
-
-#Instancia de FastAPI:
 app = FastAPI()
 
+# Cargar tu DataFrame df_movies aquí
+df_movies = pd.read_parquet('ETL\\movies.parquet')
 
-#Funciones para los Endpoints:
+@app.get("/cantidad_filmaciones_mes/{mes}")
+def cantidad_filmaciones_mes(mes: str):
+    meses = {
+        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+        "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+        "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
+    }
+    mes_numero = meses.get(mes.lower())
+    if mes_numero is None:
+        return "Mes inválido"
+    
+    df_movies['release_date'] = pd.to_datetime(df_movies['release_date'])
+    cantidad = df_movies[df_movies['release_date'].dt.month == mes_numero].shape[0]
+    return f"{cantidad} películas fueron estrenadas en el mes de {mes}"
 
-#1. PlayTimeGenre:
-@app.get("/playtimegenre/{genero}")
-async def PlayTimeGenre(request: Request, genero: str):
-    """
-    Obtiene el año de lanzamiento con más horas jugadas para un género específico.
+@app.get("/cantidad_filmaciones_dia/{dia}")
+def cantidad_filmaciones_dia(dia: str):
+    dias = {
+        "lunes": 0, "martes": 1, "miércoles": 2, "jueves": 3,
+        "viernes": 4, "sábado": 5, "domingo": 6
+    }
+    dia_numero = dias.get(dia.lower())
+    if dia_numero is None:
+        return "Día inválido"
+    
+    df_movies['release_date'] = pd.to_datetime(df_movies['release_date'])
+    cantidad = df_movies[df_movies['release_date'].dt.weekday == dia_numero].shape[0]
+    return f"{cantidad} películas fueron estrenadas en los días {dia}"
 
-    Parámetros:
-        genero: El género de los juegos a analizar.
+@app.get("/score_titulo/{titulo}")
+def score_titulo(titulo: str):
+    film = df_movies[df_movies['title'].str.lower() == titulo.lower()]
+    if film.empty:
+        return "Película no encontrada"
+    
+    film_info = film.iloc[0]
+    return f"La película {film_info['title']} fue estrenada en el año {film_info['release_year']} con un score/popularidad de {film_info['popularity']}"
 
-    Respuesta:
-        Un diccionario con el año de lanzamiento con más horas jugadas para el género especificado.
-    """
-
-   # Carga de datos
-    try:
-     df_juegos = pd.read_parquet("ETL/games.parquet", columns=["item_id", "tags", "release_date"])
-     df_items = pd.read_parquet("ETL/items.parquet", columns=["item_id", "playtime_forever"])
-    except FileNotFoundError:
-     raise Exception("Error al cargar los datos")
-
-  # Filtrado por género
-    df_genero = df_juegos.loc[df_juegos["tags"].str.contains(genero, case=False)]
-    df_genero = df_genero.merge(df_items[['item_id', 'playtime_forever']], on='item_id', how='left')
-
-  # Año con más horas jugadas
-    if "release_date" in df_genero.columns:
-       anio_lanzamiento = pd.to_datetime(df_genero['release_date']).dt.year
-       df_horas = df_genero.groupby(anio_lanzamiento)["playtime_forever"].agg("sum")
-       año_max = df_horas.idxmax()
-       return {"Año de lanzamiento con más horas jugadas para Género " + genero: int(año_max)}
-    else:
-      return {"Mensaje": "No se pudo obtener el año de lanzamiento debido a problemas con la columna `release_date`"}
+@app.get("/votos_titulo/{titulo}")
+def votos_titulo(titulo: str):
+    film = df_movies[df_movies['title'].str.lower() == titulo.lower()]
+    if film.empty:
+        return "Película no encontrada"
+    
+    film_info = film.iloc[0]
+    if film_info['vote_count'] < 2000:
+        return "La película no cumple con el mínimo de 2000 valoraciones"
+    
+    promedio_votos = film_info['vote_average']
+    return f"La película {film_info['title']} fue estrenada en el año {film_info['release_year']}. La misma cuenta con un total de {film_info['vote_count']} valoraciones, con un promedio de {promedio_votos}"
 
 
+@app.get("/get_actor/{nombre_actor}")
+def get_actor(nombre_actor: str):
+    actor_films = df_movies[df_movies['cast'].apply(lambda x: nombre_actor.lower() in x.lower())]
+    if actor_films.empty:
+        return "Actor no encontrado"
+    
+    cantidad = actor_films.shape[0]
+    total_retorno = actor_films['return'].sum()
+    promedio_retorno = total_retorno / cantidad
+    return f"El actor {nombre_actor} ha participado de {cantidad} cantidad de filmaciones, el mismo ha conseguido un retorno de {total_retorno} con un promedio de {promedio_retorno} por filmación"
 
-#2. UserForGenre:
-@app.get("/user_for_genre/{genero}")
-async def user_for_genre(request: Request, genero: str):
-    """
-    Obtiene el usuario con más horas jugadas para un género específico.
 
-    Parámetros:
-        genero: El género del juego (por ejemplo, "Acción").
-
-    Respuesta:
-        Un diccionario con el usuario con más horas jugadas y un desglose de las horas jugadas por usuario.
-    """
-
-    # Carga de datos
-    df_reviews = pd.read_parquet("ETL/reviews.parquet", columns=['user_id', 'item_id'])
-    df_juegos = pd.read_parquet("ETL/games.parquet", columns=['item_id', 'tags'])
-
-    # Filtrado por género (buscar en la columna 'tags' del DataFrame juegos)
-    try:
-        df_genero = df_juegos[df_juegos["tags"].str.contains(genero, case=False)]
-        df_genero = df_genero[df_genero["item_id"].isin(df_juegos[df_juegos["tags"].str.contains(genero, case=False)]['item_id'])]
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Género no encontrado")
-
-    # Agrupación por usuario y cálculo de horas jugadas (asumiendo playtime_forever en df_items)
-    df_items = pd.read_parquet("ETL/items.parquet", columns=['user_id', 'item_id', 'playtime_forever'])
-    df_items['playtime_forever'] = df_items['playtime_forever'].astype('float32')
-    df_horas = df_genero.merge(df_items, on='item_id', how='left').groupby('user_id')['playtime_forever'].sum()
-
-    # Usuario con más horas jugadas
-    usuario_max = df_horas.idxmax()
-
-    return {"Usuario con más horas jugadas para Género " + genero: usuario_max, "Horas jugadas": df_horas.to_dict()}
+@app.get("/get_director/{nombre_director}")
+def get_director(nombre_director: str):
+    director_films = df_movies[df_movies['director'].str.lower() == nombre_director.lower()]
+    if director_films.empty:
+        return "Director no encontrado"
+    
+    films_info = []
+    for _, film in director_films.iterrows():
+        ganancia = film['revenue'] - film['budget']
+        films_info.append({
+            "title": film['title'],
+            "release_date": film['release_date'],
+            "individual_return": film['return'],
+            "budget": film['budget'],
+            "ganancia": ganancia
+        })
+    
+    total_retorno = director_films['return'].sum()
+    return {
+        "director": nombre_director,
+        "total_retorno": total_retorno,
+        "films": films_info
+    }
