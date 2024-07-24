@@ -10,7 +10,7 @@ from collections import Counter
 app = FastAPI()
 
 # Cargar tu DataFrame df_movies aquí
-df_movies = pd.read_parquet('ETL\\movies.parquet')
+df_movies = pd.read_parquet('ETL\movies.parquet')
 
 @app.get("/cantidad_filmaciones_mes/{mes}")
 def cantidad_filmaciones_mes(mes: str):
